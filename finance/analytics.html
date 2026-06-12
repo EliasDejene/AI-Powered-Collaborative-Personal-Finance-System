@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Finance - Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="shared-sidebar.css">
+    <style>
+        .section-title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--teal);
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+        
+        .chart-box {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .score-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 6px solid var(--teal);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            margin: 0 auto 12px;
+        }
+        
+        .score-val {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1;
+        }
+        
+        .score-lbl {
+            font-size: 0.65rem;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+        
+        .insight-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(35, 75, 107, 0.35);
+            font-size: 0.85rem;
+        }
+        
+        .insight-item:last-child {
+            border-bottom: none;
+        }
+        
+        .insight-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="mobile-topbar">
+        <button id="hamburger-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+        <span style="font-weight:700;font-size:0.9rem;color:var(--gold)">Analytics</span>
+    </div>
+    <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <div class="d-flex" id="wrapper">
+        <div id="sidebar-wrapper">
+            <div class="sidebar-logo">
+                <img src="img/logo.png" alt="Logo" style="width:100px; height:100px; border-radius:50%; display:block; margin:0 auto; object-fit: cover;">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-link-item"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="transactions.html" class="nav-link-item"><i class="fas fa-exchange-alt"></i> Transactions</a>
+                <a href="ai-budget.html" class="nav-link-item"><i class="fas fa-magic"></i> AI Budget</a>
+                <a href="recommendations.html" class="nav-link-item"><i class="fas fa-lightbulb"></i> Recommendations</a>
+                <a href="reports.html" class="nav-link-item"><i class="fas fa-file-alt"></i> Reports</a>
+                <a href="analytics.html" class="nav-link-item active"><i class="fas fa-chart-bar"></i> Analytics</a>
+                <a href="about.html" class="nav-link-item"><i class="fas fa-info-circle"></i> About</a>
+            </nav>
+        </div>
+
+        <div id="page-content-wrapper">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <h5 class="mb-0 fw-bold">Advanced Analytics</h5>
+                <select id="yearPicker" class="form-select" style="width:auto;font-size:0.85rem" onchange="loadAnalytics()">
+                <option value="2025">2025</option><option value="2026" selected>2026</option>
+            </select>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <!-- Actual vs Budget bar chart -->
+                <div class="col-lg-8">
+                    <div class="chart-box h-100">
+                        <div class="section-title">Actual vs. AI Budgeted Spending</div>
+                        <div style="position:relative;height:280px"><canvas id="barChart"></canvas></div>
+                    </div>
+                </div>
+                <!-- Financial health score -->
+                <div class="col-lg-4">
+                    <div class="chart-box h-100 text-center">
+                        <div class="section-title">Financial Health Score</div>
+                        <div style="position:relative;height:200px"><canvas id="radarChart"></canvas></div>
+                        <p id="healthMsg" class="mt-2 text-muted-custom" style="font-size:0.8rem"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <!-- Yearly income vs expense -->
+                <div class="col-lg-8">
+                    <div class="chart-box">
+                        <div class="section-title">Income vs. Expense — Monthly Trend</div>
+                        <div style="position:relative;height:200px"><canvas id="trendChart"></canvas></div>
+                    </div>
+                </div>
+                <!-- Key insights -->
+                <div class="col-lg-4">
+                    <div class="chart-box h-100">
+                        <div class="section-title">Key Insights</div>
+                        <div id="insightsList">
+                            <div class="text-center py-3 text-muted-custom" style="font-size:0.82rem"><i class="fas fa-spinner fa-spin me-2"></i>Analyzing…</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'backend';
+        const CAT_COLORS = ['#e63946', '#f4a261', '#2a9d8f', '#9d4edd', '#48cae4', '#e9c46a', '#8338ec', '#06d6a0'];
+        let barInst = null,
+            radarInst = null,
+            trendInst = null;
+
+        async function loadAnalytics() {
+            const year = document.getElementById('yearPicker').value;
+            try {
+                const [yearlyRes, catRes, dashRes] = await Promise.all([
+                    fetch(`${API_BASE}/reports.php?action=yearly&year=${year}`).then(r => r.json()),
+                    fetch(`${API_BASE}/reports.php?action=category`).then(r => r.json()),
+                    fetch(`${API_BASE}/reports.php?action=dashboard`).then(r => r.json()),
+                ]);
+                const budRes = await fetch(`${API_BASE}/ai-budget.php?action=current`).then(r => r.json());
+
+                renderBarChart(catRes.categories || [], budRes.budgets || []);
+                renderTrend(yearlyRes.yearly || []);
+                renderRadar(dashRes);
+                renderInsights(dashRes, catRes.categories || []);
+            } catch (e) {
+                console.warn(e);
+                renderDemoCharts();
+            }
+        }
+
+        function renderBarChart(cats, budgets) {
+            if (barInst) barInst.destroy();
+            const labels = cats.map(c => c.category.replace(' & ', ' & \n'));
+            const actual = cats.map(c => parseFloat(c.total));
+            const budgetMap = {};
+            budgets.forEach(b => {
+                budgetMap[b.category] = parseFloat(b.recommended_amount);
+            });
+            const budgeted = cats.map(c => budgetMap[c.category] || 0);
+
+            const ctx = document.getElementById('barChart').getContext('2d');
+            barInst = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'AI Budget',
+                        data: budgeted,
+                        backgroundColor: 'rgba(72,202,228,0.4)',
+                        borderColor: '#48cae4',
+                        borderWidth: 1.5,
+                        borderRadius: 4
+                    }, {
+                        label: 'Actual Spent',
+                        data: actual,
+                        backgroundColor: 'rgba(212,160,23,0.7)',
+                        borderColor: '#d4a017',
+                        borderWidth: 1.5,
+                        borderRadius: 4
+                    }, ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#a9c2d4',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#a9c2d4',
+                                font: {
+                                    size: 10
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#a9c2d4',
+                                font: {
+                                    size: 10
+                                },
+                                callback: v => v >= 1000 ? (v / 1000) + 'k' : v
+                            },
+                            grid: {
+                                color: 'rgba(35,75,107,0.4)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTrend(yearly) {
+            if (trendInst) trendInst.destroy();
+            const labels = yearly.map(r => r.month_name?.slice(0, 3) || '');
+            const income = yearly.map(r => parseFloat(r.income) || 0);
+            const expenses = yearly.map(r => parseFloat(r.expenses) || 0);
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            trendInst = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Income',
+                        data: income,
+                        borderColor: '#2a9d8f',
+                        backgroundColor: 'rgba(42,157,143,0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3
+                    }, {
+                        label: 'Expense',
+                        data: expenses,
+                        borderColor: '#e63946',
+                        backgroundColor: 'rgba(230,57,70,0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3
+                    }, ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#a9c2d4',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#a9c2d4',
+                                font: {
+                                    size: 10
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#a9c2d4',
+                                font: {
+                                    size: 10
+                                },
+                                callback: v => v >= 1000 ? (v / 1000) + 'k' : v
+                            },
+                            grid: {
+                                color: 'rgba(35,75,107,0.4)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderRadar(d) {
+            if (radarInst) radarInst.destroy();
+            const income = d.total_income || 0;
+            const expenses = d.total_expenses || 0;
+            const savings = Math.max(0, income - expenses);
+            const savScore = income > 0 ? Math.min(Math.round(savings / income * 100), 100) : 0;
+            const budScore = income > 0 ? Math.max(0, 100 - Math.round(expenses / income * 100)) : 50;
+            const constScore = 80;
+            const investScore = 40;
+            const debtScore = 85;
+            document.getElementById('healthMsg').textContent = budScore >= 70 ? '💚 Finances look healthy!' : budScore >= 50 ? '🟡 Room to improve' : ' 🔴 Budget attention needed';
+
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            radarInst = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Savings', 'Investment', 'Debt Control', 'Budgeting', 'Consistency'],
+                    datasets: [{
+                        label: 'Score',
+                        data: [savScore, investScore, debtScore, budScore, constScore],
+                        borderColor: '#48cae4',
+                        backgroundColor: 'rgba(72,202,228,0.15)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#48cae4'
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            grid: {
+                                color: '#234b6b'
+                            },
+                            pointLabels: {
+                                color: '#a9c2d4',
+                                font: {
+                                    size: 10
+                                }
+                            },
+                            angleLines: {
+                                color: '#234b6b'
+                            },
+                            ticks: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderInsights(d, cats) {
+            const income = parseFloat(d.total_income) || 0;
+            const expenses = parseFloat(d.total_expenses) || 0;
+            const insights = [];
+
+            if (expenses > income) insights.push({
+                icon: '⚠️',
+                color: '#e63946',
+                msg: 'You are spending more than you earn this month. Review your budget immediately.'
+            });
+            else if (income - expenses > income * 0.2) insights.push({
+                icon: '🎉',
+                color: '#2a9d8f',
+                msg: `Great job! You're saving ${Math.round((income-expenses)/income*100)}% of your income this month.`
+            });
+
+            cats.slice(0, 2).forEach(c => {
+                const pct = income > 0 ? Math.round(c.total / income * 100) : 0;
+                if (pct > 25) insights.push({
+                    icon: '📊',
+                    color: '#f4a261',
+                    msg: `${c.category} is taking ${pct}% of your income. Consider reviewing this category.`
+                });
+            });
+
+            if (!insights.length) insights.push({
+                icon: '✅',
+                color: '#2a9d8f',
+                msg: 'Your finances are on track! Keep maintaining your current spending habits.'
+            });
+            insights.push({
+                icon: '💡',
+                color: '#48cae4',
+                msg: 'Tip: Set up a monthly savings goal on the AI Budget page to automate your savings.'
+            });
+
+            document.getElementById('insightsList').innerHTML = insights.map(i => `
+        <div class="insight-item">
+            <div class="insight-icon" style="background:${i.color}22;border:1px solid ${i.color}44">${i.icon}</div>
+            <div style="color:var(--muted)">${i.msg}</div>
+        </div>`).join('');
+        }
+
+        function renderDemoCharts() {
+            renderBarChart(
+                [{
+                    category: 'Housing',
+                    total: 12000
+                }, {
+                    category: 'Food & Dining',
+                    total: 7500
+                }, {
+                    category: 'Transport',
+                    total: 3800
+                }, {
+                    category: 'Utilities',
+                    total: 3200
+                }, {
+                    category: 'Entertainment',
+                    total: 4500
+                }], [{
+                    category: 'Housing',
+                    recommended_amount: 12000
+                }, {
+                    category: 'Food & Dining',
+                    recommended_amount: 6000
+                }, {
+                    category: 'Transport',
+                    recommended_amount: 4000
+                }, {
+                    category: 'Utilities',
+                    recommended_amount: 3000
+                }, {
+                    category: 'Entertainment',
+                    recommended_amount: 2000
+                }]
+            );
+            renderTrend([{
+                month_name: 'January',
+                income: 40000,
+                expenses: 35000
+            }, {
+                month_name: 'February',
+                income: 42000,
+                expenses: 36000
+            }, {
+                month_name: 'March',
+                income: 45000,
+                expenses: 38000
+            }, {
+                month_name: 'April',
+                income: 45000,
+                expenses: 42827
+            }]);
+            renderRadar({
+                total_income: 45000,
+                total_expenses: 42827
+            });
+            renderInsights({
+                total_income: 45000,
+                total_expenses: 42827
+            }, [{
+                category: 'Housing',
+                total: 12000
+            }]);
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar-wrapper').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('active');
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar-wrapper').classList.remove('open');
+            document.getElementById('sidebar-overlay').classList.remove('active');
+        }
+
+        loadAnalytics();
+    </script>
+</body>
+
+</html>
