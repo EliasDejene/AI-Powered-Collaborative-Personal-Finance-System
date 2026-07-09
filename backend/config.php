@@ -9,7 +9,7 @@ define('DB_HOST', 'localhost');
 define('DB_NAME', 'finance_db');
 define('DB_USER', 'root');        // ← change to your MySQL username
 define('DB_PASS', '');            // ← change to your MySQL password
-define('GEMINI_API_KEY', 'AIzaSyDNoC6ApbyHE9Asf3V4zfnY5708N2Lzfkg'); // ← paste your free Gemini key
+define('GEMINI_API_KEY', ''); // ← paste your free Gemini key
 
 // Gemini model (free tier):
 //   gemini-1.5-flash → 15 req/min, 1,500/day (recommended)
